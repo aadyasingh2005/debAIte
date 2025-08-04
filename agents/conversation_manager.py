@@ -1,96 +1,147 @@
-import json
+# agents/conversation_manager.py
+# ──────────────────────────────────────────────────────────────
+import os, json
 from datetime import datetime
+from dotenv import load_dotenv
+import google.generativeai as genai
+from debate.context_mode import ContextMode
+
+load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+# deterministic config for summaries
+SUMMARY_CFG = genai.GenerationConfig(
+    temperature=0.0,
+    max_output_tokens=400,
+    top_p=0.95,
+    top_k=40,
+)
 
 class ConversationManager:
-    def __init__(self):
-        self.history = []
-        self.round_number = 0
-        self.debate_topic = ""
-    
-    def start_debate(self, topic, participants):
-        """Initialize a new debate session"""
-        self.debate_topic = topic
-        self.history = []
-        self.round_number = 0
-        self.participants = [agent.name for agent in participants]
-        
-        # Log debate start
-        self.add_system_message(f"Debate started: {topic}")
-        self.add_system_message(f"Participants: {', '.join(self.participants)}")
-    
-    def add_message(self, agent_name, message, message_type="response"):
-        """Add a message to conversation history"""
-        entry = {
-            "round": self.round_number,
-            "agent": agent_name,
-            "message": message,
-            "type": message_type,
-            "timestamp": datetime.now().isoformat()
-        }
-        self.history.append(entry)
-    
-    def add_system_message(self, message):
-        """Add system/admin message"""
-        self.add_message("SYSTEM", message, "system")
-    
-    def get_context_for_agent(self, agent_name, last_n_messages=4):
-        """Get conversation context for an agent (excluding system messages)"""
-        # Filter out system messages and get recent conversation
-        conversation_messages = [
-            h for h in self.history 
-            if h["type"] != "system"
-        ]
-        
-        # Get last N messages for context
-        recent_messages = conversation_messages[-last_n_messages:]
-        
-        # Format as readable context
-        context_lines = []
-        for msg in recent_messages:
-            if msg["agent"] != agent_name:  # Don't include agent's own messages in context
-                context_lines.append(f"{msg['agent']}: {msg['message']}")
-        
-        return "\n".join(context_lines)
-    
-    def get_full_conversation(self):
-        """Get the full conversation history"""
-        return self.history
-    
-    def summarize_conversation(self):
-        """Create a summary of the conversation so far"""
-        conversation_messages = [
-            h for h in self.history 
-            if h["type"] != "system"
-        ]
-        
-        if len(conversation_messages) <= 2:
-            return "Debate just started."
-        
-        # Simple summarization (you could enhance this with LLM)
-        participants = set(msg["agent"] for msg in conversation_messages)
-        total_messages = len(conversation_messages)
-        
-        return f"Round {self.round_number}: {total_messages} messages exchanged between {', '.join(participants)}."
-    
+    """
+    Keeps the full debate log and returns context strings according
+    to ContextMode (FULL, SUMMARIZED, HYBRID).
+    """
+    def __init__(self,
+                 mode: ContextMode = ContextMode.HYBRID,
+                 window_size: int = 3,
+                 summary_every_n_turns: int = 6):
+        self.mode        = mode
+        self.window_size = window_size
+        self.summary_every_n_turns = summary_every_n_turns
+
+        self.history   = []          # list[dict]
+        self.summary   = ""          # rolling summary
+        self.round     = 0
+        self.topic     = ""
+        self.participants = []
+        self.turns_since_last_summary = 0
+
+        self.summary_model = genai.GenerativeModel("gemini-1.5-flash")
+
+    # ───────────────────────── Session helpers ───────────────────────── #
+    def start_debate(self, topic: str, agents):
+        """Call once from DebateController before round 1."""
+        self.topic        = topic
+        self.participants = [a.name for a in agents]
+        self.history.clear()
+        self.round = 0
+        self.summary = ""
+        self.turns_since_last_summary = 0
+
+        self.add_system_message(f"Debate started on '{topic}'.")
+        self.add_system_message("Participants: " + ", ".join(self.participants))
+
     def advance_round(self):
-        """Move to the next round"""
-        self.round_number += 1
-        self.add_system_message(f"Round {self.round_number} started")
-    
-    def export_debate(self, filename=None):
-        """Export debate to JSON file"""
-        if not filename:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"debate_{timestamp}.json"
-        
-        export_data = {
-            "topic": self.debate_topic,
-            "participants": self.participants,
-            "total_rounds": self.round_number,
-            "history": self.history
-        }
-        
-        with open(filename, 'w') as f:
-            json.dump(export_data, f, indent=2)
-        
-        return filename
+        self.round += 1
+        self.add_system_message(f"Round {self.round} begins.")
+
+    # ───────────────────────── Logging utilities ─────────────────────── #
+    def add_system_message(self, text: str):
+        self._add_message("SYSTEM", text, "system")
+
+    def add_message(self, speaker: str, text: str):
+        self._add_message(speaker, text, "response")
+
+    def _add_message(self, speaker: str, text: str, kind: str):
+        self.history.append({
+            "time": datetime.utcnow().isoformat(timespec="seconds"),
+            "round": self.round,
+            "agent": speaker,
+            "message": text,
+            "type": kind
+        })
+
+        if kind != "system":
+            self.turns_since_last_summary += 1
+            if (self.mode in (ContextMode.HYBRID, ContextMode.SUMMARIZED) and
+                self.turns_since_last_summary >= self.summary_every_n_turns):
+                self._update_summary()
+
+    # ───────────────────────── Context for agents ────────────────────── #
+    def context_for(self, requesting_agent: str) -> str:
+        """Return context string according to mode."""
+        if self.mode == ContextMode.FULL:
+            return self._raw_history(exclude=requesting_agent)
+
+        if self.mode == ContextMode.SUMMARIZED:
+            return self.summary or "[No summary yet]"
+
+        # HYBRID
+        recent = self._recent_window(exclude=requesting_agent)
+        bits   = []
+        if self.summary:
+            bits.append(f"[Earlier summary]\n{self.summary}")
+        if recent:
+            bits.append(recent)
+        return "\n".join(bits) or "[No context]"
+
+    # ───────────────────────── Internal helpers ──────────────────────── #
+    def _raw_history(self, exclude: str) -> str:
+        return "\n".join(
+            f"{m['agent']}: {m['message']}"
+            for m in self.history
+            if m["type"] != "system" and m["agent"] != exclude
+        )
+
+    def _recent_window(self, exclude: str) -> str:
+        msgs = [m for m in self.history if m["type"] != "system"]
+        window = msgs[-self.window_size*2:]   # heuristic
+        return "\n".join(
+            f"{m['agent']}: {m['message']}"
+            for m in window if m["agent"] != exclude
+        )
+
+    def _update_summary(self):
+        """Summarise everything except last window_size msgs."""
+        msgs = [m for m in self.history if m["type"] != "system"]
+        if len(msgs) <= self.window_size:
+            return
+        old = msgs[:-self.window_size]
+
+        prompt = (
+            "Summarise the following multi-agent debate in ≤300 words. "
+            "Preserve key claims and who made them.\n\n" +
+            "\n".join(f"{m['agent']}: {m['message']}" for m in old) +
+            "\n\nSummary:"
+        )
+        try:
+            resp = self.summary_model.generate_content(
+                prompt,
+                generation_config=SUMMARY_CFG
+            )
+            self.summary = resp.text.strip()
+        except Exception as e:
+            self.summary += f"\n[Summary failed: {e}]"
+
+        self.turns_since_last_summary = 0
+
+    # ───────────────────────── Export (optional) ─────────────────────── #
+    def export_json(self, path="debate_export.json"):
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({
+                "topic": self.topic,
+                "mode":  self.mode.value,
+                "history": self.history
+            }, f, indent=2)
+        return path

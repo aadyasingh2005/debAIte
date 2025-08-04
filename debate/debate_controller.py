@@ -1,120 +1,73 @@
-from agents.conversation_manager import ConversationManager
+# debate/debate_controller.py
+# ──────────────────────────────────────────────────────────────
 import time
+from agents.conversation_manager import ConversationManager
+from debate.context_mode import ContextMode
 
 class DebateController:
-    def __init__(self, agents, topic):
-        self.agents = agents
-        self.topic = topic
-        self.conversation_manager = ConversationManager()
-        self.max_rounds = 3  # Configurable
-        
-    def run_structured_debate(self):
-        """Run a complete structured debate"""
-        print(f"🎯 Starting Debate: {self.topic}")
-        print("=" * 60)
-        
-        # Initialize debate
-        self.conversation_manager.start_debate(self.topic, self.agents)
-        
-        # Round 1: Opening Statements
-        self._run_opening_statements()
-        
-        # Round 2-N: Rebuttal Rounds
-        for round_num in range(2, self.max_rounds):
-            self._run_rebuttal_round(round_num)
-        
-        # Final Round: Closing Arguments
-        self._run_closing_arguments()
-        
-        # Debate Summary
-        self._display_debate_summary()
-        
-        return self.conversation_manager.get_full_conversation()
-    
-    def _run_opening_statements(self):
-        """Round 1: Each agent gives opening statement"""
-        print("\n🔥 ROUND 1: OPENING STATEMENTS")
-        print("-" * 40)
-        
-        self.conversation_manager.advance_round()
-        
-        for agent in self.agents:
-            print(f"\n{agent.name} ({agent.role}):")
-            
-            response = agent.respond(
-                topic=self.topic,
-                context="",  # No context for opening statements
-                round_number=1,
-                debate_stage="opening"
-            )
-            
-            print(response)
-            self.conversation_manager.add_message(agent.name, response)
-            time.sleep(1)  # Small delay for readability
-    
-    def _run_rebuttal_round(self, round_number):
-        """Rebuttal rounds: Agents respond to each other"""
-        print(f"\n🥊 ROUND {round_number}: REBUTTALS")
-        print("-" * 40)
-        
-        self.conversation_manager.advance_round()
-        
-        for agent in self.agents:
-            print(f"\n{agent.name} ({agent.role}):")
-            
-            # Get context of what others have said
-            context = self.conversation_manager.get_context_for_agent(agent.name)
-            
-            response = agent.respond(
-                topic=self.topic,
-                context=context,
-                round_number=round_number,
-                debate_stage="rebuttal"
-            )
-            
-            print(response)
-            self.conversation_manager.add_message(agent.name, response)
-            time.sleep(1)
-    
-    def _run_closing_arguments(self):
-        """Final round: Closing arguments"""
-        print(f"\n🎬 FINAL ROUND: CLOSING ARGUMENTS")
-        print("-" * 40)
-        
-        self.conversation_manager.advance_round()
-        
-        for agent in self.agents:
-            print(f"\n{agent.name} ({agent.role}) - Final Statement:")
-            
-            # Get full context for closing
-            context = self.conversation_manager.get_context_for_agent(agent.name, last_n_messages=8)
-            
-            response = agent.respond(
-                topic=self.topic,
-                context=context,
-                round_number=self.conversation_manager.round_number,
-                debate_stage="closing"
-            )
-            
-            print(response)
-            self.conversation_manager.add_message(agent.name, response)
-            time.sleep(1)
-    
-    def _display_debate_summary(self):
-        """Show debate statistics and summary"""
-        print("\n" + "=" * 60)
-        print("📊 DEBATE SUMMARY")
-        print("=" * 60)
-        
-        print(f"Topic: {self.topic}")
-        print(f"Total Rounds: {self.conversation_manager.round_number}")
-        print(f"Total Messages: {len([h for h in self.conversation_manager.history if h['type'] != 'system'])}")
-        
-        print("\nParticipant Statistics:")
-        for agent in self.agents:
-            stats = agent.get_agent_stats()
-            print(f"- {stats['name']}: {stats['messages_sent']} messages")
-        
-        # Export option
-        filename = self.conversation_manager.export_debate()
-        print(f"\n💾 Debate exported to: {filename}")
+    def __init__(self, agents, topic,
+                 context_mode: ContextMode = ContextMode.HYBRID,
+                 max_rounds: int = 3):
+        self.agents     = agents
+        self.topic      = topic
+        self.max_rounds = max_rounds
+        self.cm         = ConversationManager(mode=context_mode)
+
+        # initialise log
+        self.cm.start_debate(topic, agents)
+
+    # ──────────────────────────────────────────────────────────
+    def run(self):
+        self._opening_statements()
+        for r in range(2, self.max_rounds):
+            self._rebuttal_round(r)
+        self._closing_round()
+        self._summary()
+
+    # ───────────────────────── rounds ─────────────────────────
+    def _opening_statements(self):
+        print("\n=== ROUND 1 • Opening Statements ===")
+        self.cm.advance_round()
+
+        for ag in self.agents:
+            reply = ag.respond(self.topic,
+                               context="",
+                               round_number=1,
+                               stage="opening")     # ← fixed
+            self.cm.add_message(ag.name, reply)
+            print(f"\n{ag.name}: {reply}")
+            time.sleep(0.4)
+
+    def _rebuttal_round(self, num):
+        print(f"\n=== ROUND {num} • Rebuttals ===")
+        self.cm.advance_round()
+
+        for ag in self.agents:
+            ctx   = self.cm.context_for(ag.name)
+            reply = ag.respond(self.topic,
+                               context=ctx,
+                               round_number=num,
+                               stage="rebuttal")    # ← fixed
+            self.cm.add_message(ag.name, reply)
+            print(f"\n{ag.name}: {reply}")
+            time.sleep(0.4)
+
+    def _closing_round(self):
+        print("\n=== FINAL ROUND • Closing Arguments ===")
+        self.cm.advance_round()
+
+        for ag in self.agents:
+            ctx   = self.cm.context_for(ag.name)
+            reply = ag.respond(self.topic,
+                               context=ctx,
+                               round_number=self.max_rounds,
+                               stage="closing")      # ← fixed
+            self.cm.add_message(ag.name, reply)
+            print(f"\n{ag.name}: {reply}")
+            time.sleep(0.4)
+
+    # ───────────────────────── summary ────────────────────────
+    def _summary(self):
+        print("\n=== Debate complete ===")
+        print(f"Total messages: {len(self.cm.history)}")
+        print(f"Context mode  : {self.cm.mode.value}")

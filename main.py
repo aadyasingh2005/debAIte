@@ -1,59 +1,96 @@
-from agents.base_agent import DebateAgent
-from debate.debate_controller import DebateController
+# main.py
+# ──────────────────────────────────────────────────────────────
+# 1.   Run  →  python main.py
+# 2.   Enter debate topic
+# 3.   (Optionally edit topic by re-typing)
+# 4.   Choose context-mode when prompted
+# 5.   Debate starts
 
-def create_sample_agents():
-    """Create some sample agents for testing"""
-    agents = [
+from debate.context_mode import ContextMode
+from debate.debate_controller import DebateController
+from agents.base_agent import DebateAgent
+
+
+# ------------------------------------------------------------------
+# Sample agents (swap out with your AgentBuilder if you like)
+# ------------------------------------------------------------------
+def sample_agents():
+    return [
         DebateAgent(
             name="Dr. Sarah Chen",
-            persona="analytical, evidence-based, cautious",
+            persona="calm, evidence-based",
             role="medical researcher",
-            expertise_area="AI in healthcare and medical ethics",
-            speaking_style="professional, uses medical terminology"
+            expertise="AI in healthcare & ethics",
+            style="professional"
         ),
         DebateAgent(
             name="Marcus Rivera",
-            persona="optimistic, tech-forward, entrepreneurial", 
-            role="tech startup founder",
-            expertise_area="AI innovation and business applications",
-            speaking_style="casual, energetic, uses business terminology"
+            persona="optimistic, tech-forward",
+            role="startup founder",
+            expertise="AI entrepreneurship",
+            style="casual"
         ),
         DebateAgent(
             name="Prof. Elena Vasquez",
-            persona="thoughtful, concerned, philosophical",
-            role="ethics professor",
-            expertise_area="AI ethics and social implications",
-            speaking_style="academic, measured, asks probing questions"
+            persona="thoughtful, ethical",
+            role="philosopher",
+            expertise="AI ethics",
+            style="academic"
         )
     ]
-    return agents
 
-def run_interactive_debate():
-    """Run an interactive debate session"""
-    print("🗣️ Welcome to DebAIte - Multi-Agent Debate Simulator")
-    print("=" * 50)
-    
-    # Get debate topic from user
-    topic = input("Enter debate topic: ").strip()
+
+# ------------------------------------------------------------------
+# Utility: ask for mode *only* when we are about to start the debate
+# ------------------------------------------------------------------
+def ask_context_mode() -> ContextMode:
+    print(
+        "\nContext options:\n"
+        "  1 → FULL        (entire chat each turn)\n"
+        "  2 → SUMMARIZED  (rolling summary only)\n"
+        "  3 → HYBRID      (summary + last few messages)  [default]"
+    )
+    choice = input("Select 1, 2 or 3  ▶ ").strip()
+    return {
+        "1": ContextMode.FULL,
+        "2": ContextMode.SUMMARIZED,
+        "3": ContextMode.HYBRID,
+        "":  ContextMode.HYBRID   # Enter = default
+    }.get(choice, ContextMode.HYBRID)
+
+
+# ------------------------------------------------------------------
+# Main
+# ------------------------------------------------------------------
+def run():
+    print("\n🗣️  DebAIte – Multi-Agent Debate Simulator")
+    print("==========================================")
+
+    # 1) Topic
+    topic = input("Debate topic ▶ ").strip()
     if not topic:
-        topic = "Should AI systems be required to explain their decisions?"
-        print(f"Using default topic: {topic}")
-    
-    # Create agents (you can later make this user-configurable)
-    agents = create_sample_agents()
-    
-    print(f"\nCreated {len(agents)} agents:")
-    for agent in agents:
-        print(f"- {agent}")
-    
-    print(f"\nStarting debate on: {topic}")
-    input("Press Enter to begin...")
-    
-    # Run the debate
-    controller = DebateController(agents, topic)
-    conversation_history = controller.run_structured_debate()
-    
-    return conversation_history
+        topic = "Should governments impose strict regulations on AI research?"
+        print(f"(Default topic selected → {topic})")
+
+    # 2) Agents
+    agents = sample_agents()
+    print(f"\nLoaded {len(agents)} agents:")
+    for ag in agents:
+        print(" •", ag)
+
+    # 3) Ask for mode *right here*, just before starting
+    mode = ask_context_mode()
+    print(f"\nRunning in {mode.value.upper()} mode…")
+
+    input("\nPress <Enter> to begin the debate…")
+
+    # 4) Fire up the controller
+    DebateController(
+        agents=agents,
+        topic=topic,
+        context_mode=mode
+    ).run()
+
 
 if __name__ == "__main__":
-    run_interactive_debate()
+    run()
