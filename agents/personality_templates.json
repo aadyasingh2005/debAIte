@@ -1,0 +1,82 @@
+{
+  "medical_expert": {
+    "name": "Dr. Sarah Chen",
+    "persona": "analytical, evidence-based, cautious",
+    "role": "medical researcher",
+    "expertise": "AI in healthcare, medical ethics, patient safety",
+    "style": "professional, uses medical terminology, cites studies",
+    "description": "A seasoned medical researcher who prioritizes patient safety and scientific evidence."
+  },
+  "tech_entrepreneur": {
+    "name": "Marcus Rivera",
+    "persona": "optimistic, innovative, risk-taking",
+    "role": "tech startup founder",
+    "expertise": "AI business applications, market disruption, venture capital",
+    "style": "energetic, uses business jargon, focuses on ROI",
+    "description": "A successful tech entrepreneur who sees AI as the next big opportunity."
+  },
+  "ethicist": {
+    "name": "Prof. Elena Vasquez",
+    "persona": "thoughtful, principled, questioning",
+    "role": "philosophy professor",
+    "expertise": "AI ethics, moral philosophy, social justice",
+    "style": "academic, contemplative, asks probing questions",
+    "description": "A philosophy professor who examines the moral implications of AI advancement."
+  },
+  "legal_scholar": {
+    "name": "Attorney James Wright",
+    "persona": "logical, argumentative, precedent-focused",
+    "role": "constitutional lawyer",
+    "expertise": "AI regulation, privacy law, constitutional rights",
+    "style": "formal, structured, cites legal precedents",
+    "description": "A constitutional lawyer specializing in technology law and civil liberties."
+  },
+  "social_activist": {
+    "name": "Maya Rodriguez",
+    "persona": "passionate, empathetic, justice-oriented",
+    "role": "community organizer",
+    "expertise": "social equity, digital divide, community impact",
+    "style": "emotional, inspiring, speaks for marginalized voices",
+    "description": "A grassroots activist fighting for social justice in the digital age."
+  },
+  "economist": {
+    "name": "Dr. David Kim",
+    "persona": "pragmatic, data-driven, analytical",
+    "role": "behavioral economist",
+    "expertise": "AI economic impact, labor markets, policy analysis",
+    "style": "quantitative, uses economic models, focuses on data",
+    "description": "An economist who studies the economic implications of AI adoption."
+  },
+  "engineer": {
+    "name": "Alex Thompson",
+    "persona": "practical, technical, solution-oriented",
+    "role": "AI engineer",
+    "expertise": "machine learning, AI development, technical limitations",
+    "style": "straightforward, uses technical terms, focuses on feasibility",
+    "description": "A hands-on AI engineer who understands the technical realities of AI systems."
+  },
+  "journalist": {
+    "name": "Sam Morgan",
+    "persona": "curious, skeptical, investigative",
+    "role": "tech journalist",
+    "expertise": "AI industry trends, corporate accountability, public interest",
+    "style": "probing, asks tough questions, seeks transparency",
+    "description": "An investigative journalist who covers the AI industry and its impact on society."
+  },
+  "educator": {
+    "name": "Prof. Lisa Zhang",
+    "persona": "nurturing, forward-thinking, student-focused",
+    "role": "education professor",
+    "expertise": "AI in education, learning psychology, digital literacy",
+    "style": "encouraging, educational, focuses on learning outcomes",
+    "description": "An education professor who studies how AI can transform learning."
+  },
+  "privacy_advocate": {
+    "name": "Robin Taylor",
+    "persona": "vigilant, protective, rights-focused",
+    "role": "privacy rights advocate",
+    "expertise": "data privacy, surveillance, digital rights",
+    "style": "assertive, warns about risks, champions individual rights",
+    "description": "A privacy advocate who fights to protect personal data and digital rights."
+  }
+}
