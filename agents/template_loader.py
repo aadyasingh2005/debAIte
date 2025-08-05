@@ -3,6 +3,7 @@ import os
 from typing import Dict, List
 from agents.base_agent import DebateAgent
 
+
 class TemplateLoader:
     def __init__(self, template_file="agents/personality_templates.json"):
         self.template_file = template_file
@@ -37,31 +38,39 @@ class TemplateLoader:
             for template_id, data in self._templates.items()
         }
     
-    def create_agent_from_template(self, template_id: str, custom_name: str = None) -> DebateAgent:
+    def create_agent_from_template(self, template_id: str, custom_name: str = None, model_provider=None) -> DebateAgent:
         """Create a DebateAgent from a template"""
         template = self.get_template(template_id)
         
-        return DebateAgent(
+        # Create agent with template data
+        agent = DebateAgent(
             name=custom_name or template["name"],
             persona=template["persona"],
             role=template["role"],
             expertise=template["expertise"],
-            style=template["style"]
+            style=template["style"],
+            knowledge_domain=template.get("knowledge_domain")
         )
+        
+        # Set model provider after creation if provided
+        if model_provider:
+            agent.model_provider = model_provider
+        
+        return agent
     
-    def create_multiple_agents(self, template_ids: List[str]) -> List[DebateAgent]:
+    def create_multiple_agents(self, template_ids: List[str], model_provider=None) -> List[DebateAgent]:
         """Create multiple agents from template IDs"""
         agents = []
         for template_id in template_ids:
             try:
-                agent = self.create_agent_from_template(template_id)
+                agent = self.create_agent_from_template(template_id, model_provider=model_provider)
                 agents.append(agent)
             except ValueError as e:
                 print(f"Warning: {e}")
         return agents
     
-    def get_random_agents(self, count: int = 3) -> List[DebateAgent]:
+    def get_random_agents(self, count: int = 3, model_provider=None) -> List[DebateAgent]:
         """Get random agents for quick demos"""
         import random
         template_ids = random.sample(self.list_templates(), min(count, len(self._templates)))
-        return self.create_multiple_agents(template_ids)
+        return self.create_multiple_agents(template_ids, model_provider)
