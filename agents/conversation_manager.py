@@ -95,6 +95,7 @@ class ConversationManager:
         if recent:
             bits.append(recent)
         return "\n".join(bits) or "[No context]"
+    
 
     # ───────────────────────── Internal helpers ──────────────────────── #
     def _raw_history(self, exclude: str) -> str:
@@ -145,3 +146,53 @@ class ConversationManager:
                 "history": self.history
             }, f, indent=2)
         return path
+
+def context_for(self, requesting_agent: str) -> str:
+    """Return context for agent or shared context for batching"""
+    
+    # Special case for shared context (used in batching)
+    if requesting_agent == "shared":
+        return self._get_shared_context()
+    
+    # Individual agent context (existing logic)
+    if self.mode == ContextMode.FULL:
+        return self._raw_history(exclude=requesting_agent)
+    
+    if self.mode == ContextMode.SUMMARIZED:
+        return self.summary or "[No summary yet]"
+    
+    # HYBRID
+    recent = self._recent_window(exclude=requesting_agent)
+    parts = []
+    if self.summary:
+        parts.append(f"[Earlier summary: {self.summary}]")
+    if recent:
+        parts.append("Recent messages:")
+        parts.append(recent)
+    return "\n".join(parts) if parts else "[No context available]"
+
+def _get_shared_context(self) -> str:
+    """Get shared context for batching (doesn't exclude any agent)"""
+    if self.mode == ContextMode.FULL:
+        return "\n".join(
+            f"{m['agent']}: {m['message']}"
+            for m in self.history if m["type"] != "system"
+        )
+    
+    if self.mode == ContextMode.SUMMARIZED:
+        return self.summary or "[No summary yet]"
+    
+    # HYBRID - summary plus recent messages from all agents  
+    msgs = [m for m in self.history if m["type"] != "system"]
+    recent_msgs = msgs[-self.window_size * 2:]
+    
+    parts = []
+    if self.summary:
+        parts.append(f"[Earlier summary: {self.summary}]")
+    
+    if recent_msgs:
+        parts.append("Recent messages:")
+        recent_text = "\n".join(f"{m['agent']}: {m['message']}" for m in recent_msgs)
+        parts.append(recent_text)
+    
+    return "\n".join(parts) if parts else "[No context available]"

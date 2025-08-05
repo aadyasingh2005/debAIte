@@ -1,14 +1,40 @@
+# main.py
 from debate.context_mode import ContextMode
 from debate.debate_controller import DebateController
 from agents.base_agent import DebateAgent
-from agents.template_loader import TemplateLoader
+
+def sample_agents():
+    return [
+        DebateAgent(
+            name="Dr. Sarah Chen",
+            persona="calm, evidence-based",
+            role="medical researcher",
+            expertise="AI in healthcare & ethics",
+            style="professional"    
+        ),
+        DebateAgent(
+            name="Marcus Rivera",
+            persona="optimistic, tech-forward",
+            role="startup founder",
+            expertise="AI entrepreneurship",
+            style="casual"
+        ),
+        DebateAgent(
+            name="Prof. Elena Vasquez",
+            persona="thoughtful, ethical",
+            role="philosopher",
+            expertise="AI ethics",
+            style="academic"
+        )
+    ]
 
 def ask_context_mode() -> ContextMode:
-    """Interactive prompt for context mode"""
-    print("\nContext options:")
-    print("  1 → FULL        (entire chat each turn)")
-    print("  2 → SUMMARIZED  (rolling summary only)")
-    print("  3 → HYBRID      (summary + last few messages)  [default]")
+    print(
+        "\nContext options:\n"
+        "  1 → FULL        (entire chat each turn)\n"
+        "  2 → SUMMARIZED  (rolling summary only)\n"
+        "  3 → HYBRID      (summary + last few messages)  [default]"
+    )
     choice = input("Select 1, 2 or 3  ▶ ").strip()
     return {
         "1": ContextMode.FULL,
@@ -17,129 +43,140 @@ def ask_context_mode() -> ContextMode:
         "": ContextMode.HYBRID
     }.get(choice, ContextMode.HYBRID)
 
-def select_agents_from_templates() -> list:
-    """Let user pick agents from personality templates"""
-    loader = TemplateLoader()
+def ask_batching_preference():
+    """Ask user about batching preference"""
+    print("\n⚡ BATCHING OPTIMIZATION:")
+    print("  Batching combines multiple agent responses into 1 API call")
+    print("  • PRO: ~66% fewer API calls, faster execution, lower costs")
+    print("  • CON: Less reliable parsing, shared context between agents")
+    print()
     
-    print("\n📋 Available Agent Templates:")
-    print("=" * 50)
+    choice = input("Enable batching? (y/N): ").strip().lower()
+    use_batching = choice.startswith('y')
     
-    templates = loader.get_template_info()
-    template_list = list(templates.keys())
-    
-    for i, (template_id, description) in enumerate(templates.items(), 1):
-        print(f"{i:2d}. {template_id.replace('_', ' ').title()}")
-        print(f"    {description}")
-        print()
-    
-    print("Select agents by entering numbers (e.g., '1,3,5' or '1-3'):")
-    selection = input("Your choice ▶ ").strip()
-    
-    # Parse selection
-    selected_indices = []
-    if not selection:
-        # Default selection
-        selected_indices = [1, 2, 3]
-        print("Using default selection: 1,2,3")
+    if use_batching:
+        print("✅ Batching ENABLED - Agents will respond simultaneously")
     else:
-        for part in selection.split(','):
-            part = part.strip()
-            if '-' in part:
-                # Range selection (e.g., "1-3")
-                start, end = map(int, part.split('-'))
-                selected_indices.extend(range(start, end + 1))
+        print("❌ Batching DISABLED - Agents will respond individually")
+    
+    return use_batching
+
+def ask_length_limits():
+    """Ask user about length limits and configure if enabled"""
+    print("\n📏 LENGTH LIMITS:")
+    print("  Enforce word limits on agent responses")
+    print("  • PRO: ~60-70% fewer tokens, faster responses, lower costs")
+    print("  • CON: Shorter arguments, may cut off detailed explanations")
+    print()
+    
+    choice = input("Enable length limits? (y/N): ").strip().lower()
+    use_length_limits = choice.startswith('y')
+    
+    if not use_length_limits:
+        print("❌ Length limits DISABLED - Natural response lengths")
+        return False, None
+    
+    print("✅ Length limits ENABLED")
+    print("\n📏 Configure word limits for each debate stage:")
+    print("(Press Enter for defaults)")
+    
+    # Get word limits from user
+    opening_input = input("Opening statements word limit [100]: ").strip()
+    opening_words = int(opening_input) if opening_input.isdigit() else 100
+    
+    rebuttal_input = input("Rebuttal word limit [75]: ").strip()
+    rebuttal_words = int(rebuttal_input) if rebuttal_input.isdigit() else 75
+    
+    closing_input = input("Closing arguments word limit [125]: ").strip()
+    closing_words = int(closing_input) if closing_input.isdigit() else 125
+    
+    word_limits = {
+        "opening": {"words": opening_words, "tokens": opening_words * 2},
+        "rebuttal": {"words": rebuttal_words, "tokens": rebuttal_words * 2},
+        "closing": {"words": closing_words, "tokens": closing_words * 2}
+    }
+    
+    print(f"✅ Word limits set: Opening({opening_words}), Rebuttal({rebuttal_words}), Closing({closing_words})")
+    return True, word_limits
+
+def ask_rag_preference():
+    """Ask user about RAG knowledge retrieval"""
+    print("\n📚 RAG KNOWLEDGE RETRIEVAL:")
+    print("  Agents access domain-specific documents during debates")
+    print("  • PRO: More accurate, source-backed arguments")
+    print("  • CON: Requires document setup, slightly slower")
+    print()
+    
+    choice = input("Enable RAG knowledge retrieval? (y/N): ").strip().lower()
+    use_rag = choice.startswith('y')
+    
+    if use_rag:
+        print("✅ RAG ENABLED - Agents will access domain knowledge")
+        # Check if RAG system is available
+        try:
+            from rag.retriever import KnowledgeRetriever
+            retriever = KnowledgeRetriever()
+            domains = retriever.available_domains()
+            if domains:
+                print(f"   Available knowledge domains: {', '.join(domains)}")
             else:
-                selected_indices.append(int(part))
-    
-    # Convert to template IDs and create agents
-    selected_templates = []
-    for idx in selected_indices:
-        if 1 <= idx <= len(template_list):
-            selected_templates.append(template_list[idx - 1])
-    
-    agents = loader.create_multiple_agents(selected_templates)
-    
-    print(f"\n✅ Selected {len(agents)} agents:")
-    for agent in agents:
-        print(f"   • {agent}")
-    
-    return agents
-
-def create_custom_agent() -> DebateAgent:
-    """Create a custom agent interactively"""
-    print("\n🛠️ Create Custom Agent:")
-    name = input("Name: ").strip() or "Custom Agent"
-    persona = input("Personality (e.g., 'calm, logical'): ").strip() or "balanced, thoughtful"
-    role = input("Role (e.g., 'teacher', 'scientist'): ").strip() or "expert"
-    expertise = input("Area of expertise: ").strip() or "general knowledge"
-    style = input("Speaking style: ").strip() or "professional"
-    
-    return DebateAgent(name, persona, role, expertise, style)
-
-def choose_agent_creation_method():
-    """Let user choose how to create agents"""
-    print("\nHow would you like to create agents?")
-    print("  1 → Select from templates (recommended)")
-    print("  2 → Create custom agents")
-    print("  3 → Mix both")
-    
-    choice = input("Your choice (1-3) ▶ ").strip()
-    
-    if choice == "2":
-        # Custom agents only
-        agents = []
-        num_agents = int(input("How many custom agents? (2-6): ") or "2")
-        for i in range(num_agents):
-            print(f"\n--- Agent {i+1} ---")
-            agents.append(create_custom_agent())
-        return agents
-    
-    elif choice == "3":
-        # Mix templates and custom
-        template_agents = select_agents_from_templates()
-        
-        add_custom = input("\nAdd custom agents? (y/n): ").lower().startswith('y')
-        if add_custom:
-            num_custom = int(input("How many custom agents to add? ") or "1")
-            for i in range(num_custom):
-                print(f"\n--- Custom Agent {i+1} ---")
-                template_agents.append(create_custom_agent())
-        
-        return template_agents
-    
+                print("   ⚠️  No knowledge bases found. Run 'python rag/indexer.py' first")
+        except ImportError:
+            print("   ⚠️  RAG system not available")
     else:
-        # Templates only (default)
-        return select_agents_from_templates()
+        print("❌ RAG DISABLED - Agents use only training knowledge")
+    
+    return use_rag
 
 def run():
     print("\n🗣️  DebAIte – Multi-Agent Debate Simulator")
     print("==========================================")
 
-    # 1. Topic
+    # 1) Topic
     topic = input("Debate topic ▶ ").strip()
     if not topic:
         topic = "Should governments impose strict regulations on AI research?"
         print(f"(Default topic selected → {topic})")
 
-    # 2. Agent selection
-    agents = choose_agent_creation_method()
-    
-    if len(agents) < 2:
-        print("Need at least 2 agents for a debate!")
-        return
+    # 2) Agents
+    agents = sample_agents()
+    print(f"\nLoaded {len(agents)} agents:")
+    for ag in agents:
+        print(" •", ag)
 
-    # 3. Context mode
+    # 3) Context mode
     mode = ask_context_mode()
-    print(f"\nRunning in {mode.value.upper()} mode…")
+    
+    # 4) ASK FOR OPTIMIZATIONS HERE!
+    use_batching = ask_batching_preference()
+    use_length_limits, word_limits = ask_length_limits()
+    use_rag = ask_rag_preference()
+    
+    # 5) Summary of selections
+    print(f"\n📋 CONFIGURATION SUMMARY:")
+    print(f"   Context Mode: {mode.value.upper()}")
+    print(f"   Batching: {'✅ ENABLED' if use_batching else '❌ DISABLED'}")
+    print(f"   Length Limits: {'✅ ENABLED' if use_length_limits else '❌ DISABLED'}")
+    print(f"   RAG Knowledge: {'✅ ENABLED' if use_rag else '❌ DISABLED'}")
+    
+    if word_limits:
+        print(f"   Word Limits: Opening({word_limits['opening']['words']}), "
+              f"Rebuttal({word_limits['rebuttal']['words']}), "
+              f"Closing({word_limits['closing']['words']})")
 
     input("\nPress <Enter> to begin the debate…")
 
-    # 4. Run debate
+    # 6) Fire up the controller with all user selections
     DebateController(
         agents=agents,
         topic=topic,
-        context_mode=mode
+        context_mode=mode,
+        use_batching=use_batching,
+        use_length_limits=use_length_limits,
+        word_limits=word_limits,
+        use_rag=use_rag
     ).run()
 
 if __name__ == "__main__":
     run()
+    
