@@ -29,18 +29,36 @@ class DebateController:
                 print("⚠️  Batch processor not available, falling back to individual calls")
                 self.use_batching = False
         
-        # Conditionally initialize RAG retriever
+        # Check RAG availability and show agent domains
         if use_rag:
-            try:
-                from rag.retriever import KnowledgeRetriever
-                self.knowledge_retriever = KnowledgeRetriever()
-                print("✅ RAG knowledge retrieval enabled")
-            except ImportError:
-                print("⚠️  RAG system not available, continuing without knowledge retrieval")
-                self.use_rag = False
+            self._check_rag_availability()
         
         # Initialize conversation
         self.cm.start_debate(topic, agents)
+
+    def _check_rag_availability(self):
+        """Check RAG system and show agent domain mappings"""
+        try:
+            from rag.retriever import KnowledgeRetriever
+            retriever = KnowledgeRetriever()
+            available_domains = retriever.available_domains()
+            
+            print(f"\n📚 RAG Knowledge System Status:")
+            print(f"   Available domains: {', '.join(available_domains) if available_domains else 'None'}")
+            
+            # Show agent domain mappings
+            print(f"   Agent → Domain mappings:")
+            for agent in self.agents:
+                domain_status = "✅" if agent.knowledge_domain in available_domains else "❌"
+                domain_text = agent.knowledge_domain or "No domain"
+                print(f"     • {agent.name} → {domain_text} {domain_status}")
+            
+            if not available_domains:
+                print("   ⚠️  No knowledge bases found. Run 'python rag/indexer.py' to create them.")
+                
+        except ImportError:
+            print("⚠️  RAG system not available")
+            self.use_rag = False
 
     def run(self):
         """Run the complete debate with selected optimizations"""
@@ -91,7 +109,7 @@ class DebateController:
             context = self.cm.context_for("shared")
             self._batch_round("rebuttal", context)
         else:
-            self._individual_round("rebuttal", None)  # Individual context per agent
+            self._individual_round("rebuttal", None)
 
     def _closing_round(self):
         """Final round with optional optimizations"""
@@ -110,6 +128,7 @@ class DebateController:
 
     def _batch_round(self, stage: str, context: str):
         """Handle batched responses for a round"""
+        # Note: Batching with RAG is complex - RAG is disabled for batch mode
         responses = self.batch_processor.batch_respond(
             self.agents, self.topic, context, stage, self.word_limits
         )
@@ -129,47 +148,24 @@ class DebateController:
             else:
                 context = self.cm.context_for(agent.name)
             
-            # Add RAG knowledge if enabled
-            if self.use_rag:
-                context = self._enhance_context_with_rag(agent, context, stage)
-            
-            # Generate response with or without length limits
-            if self.use_length_limits:
-                response = agent.respond(self.topic, context, 1, stage, self.word_limits)
-            else:
-                response = agent.respond(self.topic, context, 1, stage)
+            # Generate response with RAG if enabled
+            response = agent.respond(
+                topic=self.topic,
+                context=context,
+                round_number=1,
+                stage=stage,
+                word_limits=self.word_limits,
+                use_rag=self.use_rag
+            )
             
             self.cm.add_message(agent.name, response)
             print(f"\n{agent.name}: {response}")
+            
+            # Show knowledge source if RAG was used
+            if self.use_rag and agent.knowledge_domain:
+                print(f"   📚 Drew from {agent.knowledge_domain} knowledge base")
+            
             time.sleep(0.5)
-
-    def _enhance_context_with_rag(self, agent, context: str, stage: str) -> str:
-        """Add RAG knowledge to context if available"""
-        # Map agent roles to knowledge domains
-        domain_mapping = {
-            "medical researcher": "medical",
-            "startup founder": "tech", 
-            "philosopher": "ethics",
-            "lawyer": "legal",
-            "economist": "economics"
-        }
-        
-        domain = domain_mapping.get(agent.role.lower())
-        if not domain:
-            return context  # No domain mapping found
-        
-        # Create query from topic and current context
-        query = f"{self.topic} {stage}"
-        
-        # Retrieve relevant knowledge
-        rag_context = self.knowledge_retriever.get_context_string(domain, query, top_k=2)
-        
-        if rag_context:
-            # Combine original context with RAG knowledge
-            enhanced_context = f"{context}\n\n{rag_context}" if context else rag_context
-            return enhanced_context
-        
-        return context
 
     def _summary(self):
         """Show debate statistics"""
@@ -189,6 +185,12 @@ class DebateController:
         print(f"  • Batching: {'Yes' if self.use_batching else 'No'}")
         print(f"  • Length Limits: {'Yes' if self.use_length_limits else 'No'}")
         print(f"  • RAG Knowledge: {'Yes' if self.use_rag else 'No'}")
+        
+        if self.use_rag:
+            print(f"Agent Knowledge Domains:")
+            for agent in self.agents:
+                domain = agent.knowledge_domain or "None"
+                print(f"    • {agent.name}: {domain}")
         
         if self.use_batching:
             estimated_calls = self.max_rounds

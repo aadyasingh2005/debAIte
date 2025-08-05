@@ -10,21 +10,24 @@ def sample_agents():
             persona="calm, evidence-based",
             role="medical researcher",
             expertise="AI in healthcare & ethics",
-            style="professional"    
+            style="professional",
+            knowledge_domain="medical"  # Explicitly set domain
         ),
         DebateAgent(
             name="Marcus Rivera",
             persona="optimistic, tech-forward",
             role="startup founder",
             expertise="AI entrepreneurship",
-            style="casual"
+            style="casual",
+            knowledge_domain="tech"  # Explicitly set domain
         ),
         DebateAgent(
             name="Prof. Elena Vasquez",
             persona="thoughtful, ethical",
             role="philosopher",
             expertise="AI ethics",
-            style="academic"
+            style="academic",
+            knowledge_domain="ethics"  # Explicitly set domain
         )
     ]
 
