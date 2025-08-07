@@ -1,9 +1,9 @@
-# main.py
 from debate.context_mode import ContextMode
 from debate.debate_controller import DebateController
 from agents.base_agent import DebateAgent
 from agents.model_providers import get_available_providers
 from agents.template_loader import TemplateLoader
+
 
 def ask_model_provider():
     """Ask user which model provider to use"""
@@ -43,6 +43,7 @@ def ask_model_provider():
         except ValueError:
             print("Please enter a valid number")
 
+
 def choose_agent_creation_method(model_provider):
     """Let user choose how to create agents"""
     print("\n👥 AGENT CREATION:")
@@ -55,15 +56,14 @@ def choose_agent_creation_method(model_provider):
     
     if choice == "2":
         # Default 3 agents
-        return [
+        agents = [
             DebateAgent(
                 name="Dr. Sarah Chen",
                 persona="calm, evidence-based",
                 role="medical researcher",
                 expertise="AI in healthcare & ethics",
                 style="professional",
-                knowledge_domain="medical",
-                model_provider=model_provider
+                knowledge_domain="medical"
             ),
             DebateAgent(
                 name="Marcus Rivera",
@@ -71,8 +71,7 @@ def choose_agent_creation_method(model_provider):
                 role="startup founder",
                 expertise="AI entrepreneurship",
                 style="casual",
-                knowledge_domain="tech",
-                model_provider=model_provider
+                knowledge_domain="tech"
             ),
             DebateAgent(
                 name="Prof. Elena Vasquez",
@@ -80,10 +79,15 @@ def choose_agent_creation_method(model_provider):
                 role="philosopher",
                 expertise="AI ethics",
                 style="academic",
-                knowledge_domain="ethics",
-                model_provider=model_provider
+                knowledge_domain="ethics"
             )
         ]
+        
+        # Set model provider for all agents
+        for agent in agents:
+            agent.model_provider = model_provider
+        
+        return agents
     
     elif choice == "3":
         # Custom agents
@@ -92,6 +96,7 @@ def choose_agent_creation_method(model_provider):
     else:
         # Templates (default)
         return select_agents_from_templates(model_provider)
+
 
 def select_agents_from_templates(model_provider):
     """Let user pick agents from personality templates"""
@@ -118,14 +123,18 @@ def select_agents_from_templates(model_provider):
         selected_indices = [1, 2, 3]
         print("Using default selection: 1,2,3")
     else:
-        for part in selection.split(','):
-            part = part.strip()
-            if '-' in part:
-                # Range selection (e.g., "1-3")
-                start, end = map(int, part.split('-'))
-                selected_indices.extend(range(start, end + 1))
-            else:
-                selected_indices.append(int(part))
+        try:
+            for part in selection.split(','):
+                part = part.strip()
+                if '-' in part:
+                    # Range selection (e.g., "1-3")
+                    start, end = map(int, part.split('-'))
+                    selected_indices.extend(range(start, end + 1))
+                else:
+                    selected_indices.append(int(part))
+        except ValueError:
+            print("Invalid selection format. Using default: 1,2,3")
+            selected_indices = [1, 2, 3]
     
     # Convert to template IDs and create agents
     selected_templates = []
@@ -133,7 +142,11 @@ def select_agents_from_templates(model_provider):
         if 1 <= idx <= len(template_list):
             selected_templates.append(template_list[idx - 1])
     
-    # ✅ FIXED: Pass model_provider as keyword argument
+    if not selected_templates:
+        print("No valid agents selected. Using default selection.")
+        selected_templates = template_list[:3]  # First 3 templates
+    
+    # Create agents from templates
     agents = loader.create_multiple_agents(selected_templates, model_provider=model_provider)
     
     print(f"\n✅ Selected {len(agents)} agents:")
@@ -142,10 +155,20 @@ def select_agents_from_templates(model_provider):
     
     return agents
 
+
 def create_custom_agents(model_provider):
     """Create custom agents interactively"""
     agents = []
     num_agents = int(input("How many custom agents? (2-6): ") or "3")
+    
+    # Domain mapping for auto-assignment
+    domain_keywords = {
+        "medical": ["doctor", "physician", "medical", "healthcare", "clinical"],
+        "tech": ["engineer", "developer", "programmer", "tech", "startup", "entrepreneur"],
+        "ethics": ["philosopher", "ethicist", "activist", "moral"],
+        "legal": ["lawyer", "attorney", "judge", "legal"],
+        "economics": ["economist", "financial", "business", "market"]
+    }
     
     for i in range(num_agents):
         print(f"\n🛠️  Create Agent {i+1}:")
@@ -155,17 +178,32 @@ def create_custom_agents(model_provider):
         expertise = input("Area of expertise: ").strip() or "general knowledge"
         style = input("Speaking style: ").strip() or "professional"
         
+        # Auto-assign domain based on role
+        knowledge_domain = None
+        role_lower = role.lower()
+        for domain, keywords in domain_keywords.items():
+            if any(keyword in role_lower for keyword in keywords):
+                knowledge_domain = domain
+                break
+        
         agent = DebateAgent(
             name=name,
             persona=persona,
             role=role,
             expertise=expertise,
             style=style,
-            model_provider=model_provider
+            knowledge_domain=knowledge_domain
         )
+        
+        # Set model provider after creation
+        agent.model_provider = model_provider
         agents.append(agent)
+        
+        if knowledge_domain:
+            print(f"   → Auto-assigned domain: {knowledge_domain}")
     
     return agents
+
 
 def ask_context_mode() -> ContextMode:
     print(
@@ -181,6 +219,7 @@ def ask_context_mode() -> ContextMode:
         "3": ContextMode.HYBRID,
         "": ContextMode.HYBRID
     }.get(choice, ContextMode.HYBRID)
+
 
 def ask_batching_preference():
     """Ask user about batching preference"""
@@ -200,6 +239,7 @@ def ask_batching_preference():
         print("❌ Batching DISABLED - Agents will respond individually")
     
     return use_batching
+
 
 def ask_length_limits():
     """Ask user about length limits and configure if enabled"""
@@ -238,6 +278,7 @@ def ask_length_limits():
     print(f"✅ Word limits set: Opening({opening_words}), Rebuttal({rebuttal_words}), Closing({closing_words})")
     return True, word_limits
 
+
 def ask_rag_preference():
     """Ask user about RAG knowledge retrieval"""
     print("\n📚 RAG KNOWLEDGE RETRIEVAL:")
@@ -265,6 +306,7 @@ def ask_rag_preference():
         print("❌ RAG DISABLED - Agents use only training knowledge")
     
     return use_rag
+
 
 def run():
     print("\n🗣️  DebAIte – Multi-Agent Debate Simulator")
@@ -329,85 +371,7 @@ def run():
         word_limits=word_limits,
         use_rag=use_rag
     ).run()
-def choose_agent_creation_method(model_provider):
-    """Let user choose how to create agents"""
-    print("\n👥 AGENT CREATION:")
-    print("How would you like to create agents?")
-    print("  1 → Select from personality templates (recommended)")
-    print("  2 → Use default 3-agent setup")
-    print("  3 → Create custom agents")
-    
-    choice = input("Your choice (1-3) [1] ▶ ").strip() or "1"
-    
-    if choice == "2":
-        # Default 3 agents - create and then set model provider
-        agents = [
-            DebateAgent(
-                name="Dr. Sarah Chen",
-                persona="calm, evidence-based",
-                role="medical researcher",
-                expertise="AI in healthcare & ethics",
-                style="professional",
-                knowledge_domain="medical"
-            ),
-            DebateAgent(
-                name="Marcus Rivera",
-                persona="optimistic, tech-forward",
-                role="startup founder",
-                expertise="AI entrepreneurship",
-                style="casual",
-                knowledge_domain="tech"
-            ),
-            DebateAgent(
-                name="Prof. Elena Vasquez",
-                persona="thoughtful, ethical",
-                role="philosopher",
-                expertise="AI ethics",
-                style="academic",
-                knowledge_domain="ethics"
-            )
-        ]
-        
-        # Set model provider for all agents
-        for agent in agents:
-            agent.model_provider = model_provider
-        
-        return agents
-    
-    elif choice == "3":
-        # Custom agents
-        return create_custom_agents(model_provider)
-    
-    else:
-        # Templates (default)
-        return select_agents_from_templates(model_provider)
 
-def create_custom_agents(model_provider):
-    """Create custom agents interactively"""
-    agents = []
-    num_agents = int(input("How many custom agents? (2-6): ") or "3")
-    
-    for i in range(num_agents):
-        print(f"\n🛠️  Create Agent {i+1}:")
-        name = input("Name: ").strip() or f"Agent {i+1}"
-        persona = input("Personality (e.g., 'calm, logical'): ").strip() or "balanced, thoughtful"
-        role = input("Role (e.g., 'teacher', 'scientist'): ").strip() or "expert"
-        expertise = input("Area of expertise: ").strip() or "general knowledge"
-        style = input("Speaking style: ").strip() or "professional"
-        
-        agent = DebateAgent(
-            name=name,
-            persona=persona,
-            role=role,
-            expertise=expertise,
-            style=style
-        )
-        
-        # Set model provider after creation
-        agent.model_provider = model_provider
-        agents.append(agent)
-    
-    return agents
 
 if __name__ == "__main__":
     run()

@@ -5,6 +5,7 @@
     "role": "medical researcher",
     "expertise": "AI in healthcare, medical ethics, patient safety",
     "style": "professional, uses medical terminology, cites studies",
+    "knowledge_domain": "medical",
     "description": "A seasoned medical researcher who prioritizes patient safety and scientific evidence."
   },
   "tech_entrepreneur": {
@@ -13,6 +14,7 @@
     "role": "tech startup founder",
     "expertise": "AI business applications, market disruption, venture capital",
     "style": "energetic, uses business jargon, focuses on ROI",
+    "knowledge_domain": "tech",
     "description": "A successful tech entrepreneur who sees AI as the next big opportunity."
   },
   "ethicist": {
@@ -21,6 +23,7 @@
     "role": "philosophy professor",
     "expertise": "AI ethics, moral philosophy, social justice",
     "style": "academic, contemplative, asks probing questions",
+    "knowledge_domain": "ethics",
     "description": "A philosophy professor who examines the moral implications of AI advancement."
   },
   "legal_scholar": {
@@ -29,6 +32,7 @@
     "role": "constitutional lawyer",
     "expertise": "AI regulation, privacy law, constitutional rights",
     "style": "formal, structured, cites legal precedents",
+    "knowledge_domain": "legal",
     "description": "A constitutional lawyer specializing in technology law and civil liberties."
   },
   "social_activist": {
@@ -37,6 +41,7 @@
     "role": "community organizer",
     "expertise": "social equity, digital divide, community impact",
     "style": "emotional, inspiring, speaks for marginalized voices",
+    "knowledge_domain": "ethics",
     "description": "A grassroots activist fighting for social justice in the digital age."
   },
   "economist": {
@@ -45,6 +50,7 @@
     "role": "behavioral economist",
     "expertise": "AI economic impact, labor markets, policy analysis",
     "style": "quantitative, uses economic models, focuses on data",
+    "knowledge_domain": "economics",
     "description": "An economist who studies the economic implications of AI adoption."
   },
   "engineer": {
@@ -53,6 +59,7 @@
     "role": "AI engineer",
     "expertise": "machine learning, AI development, technical limitations",
     "style": "straightforward, uses technical terms, focuses on feasibility",
+    "knowledge_domain": "tech",
     "description": "A hands-on AI engineer who understands the technical realities of AI systems."
   },
   "journalist": {
@@ -61,6 +68,7 @@
     "role": "tech journalist",
     "expertise": "AI industry trends, corporate accountability, public interest",
     "style": "probing, asks tough questions, seeks transparency",
+    "knowledge_domain": "ethics",
     "description": "An investigative journalist who covers the AI industry and its impact on society."
   },
   "educator": {
@@ -69,6 +77,7 @@
     "role": "education professor",
     "expertise": "AI in education, learning psychology, digital literacy",
     "style": "encouraging, educational, focuses on learning outcomes",
+    "knowledge_domain": "ethics",
     "description": "An education professor who studies how AI can transform learning."
   },
   "privacy_advocate": {
@@ -77,6 +86,7 @@
     "role": "privacy rights advocate",
     "expertise": "data privacy, surveillance, digital rights",
     "style": "assertive, warns about risks, champions individual rights",
+    "knowledge_domain": "legal",
     "description": "A privacy advocate who fights to protect personal data and digital rights."
   }
 }

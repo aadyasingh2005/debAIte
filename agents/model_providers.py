@@ -65,42 +65,61 @@ class OllamaProvider(ModelProvider):
             try:
                 import ollama
                 self._ollama_client = ollama
-                # Test connection
                 self._ollama_client.list()
             except ImportError:
                 raise Exception("Ollama library not installed. Run: pip install ollama")
             except Exception as e:
-                raise Exception(f"Ollama not running or not accessible: {e}")
+                raise Exception(f"Ollama service not running: {e}")
         return self._ollama_client
+
+    def is_available(self) -> bool:
+        try:
+            client = self._get_ollama_client()
+            models_response = client.list()
+            
+            # Extract model names
+            model_names = []
+            if hasattr(models_response, 'get') and 'models' in models_response:
+                models = models_response['models']
+            elif hasattr(models_response, 'models'):
+                models = models_response.models
+            else:
+                models = models_response
+            
+            for model in models:
+                if isinstance(model, dict):
+                    name = model.get('name', '')
+                elif hasattr(model, 'name'):
+                    name = model.name
+                else:
+                    name = str(model)
+                
+                model_names.append(name.lower())
+            
+            # Look for phi3 in any variant
+            return any(self.model_name.lower() in name for name in model_names)
+            
+        except Exception:
+            return False
     
     def generate_content(self, prompt: str, config: Dict[str, Any]) -> str:
         client = self._get_ollama_client()
         
-        # Ollama options (different from Gemini)
-        options = {
-            'temperature': config.get('temperature', 0.7),
-            'num_predict': config.get('max_tokens', 500),
-            'top_p': config.get('top_p', 0.95),
-            'top_k': config.get('top_k', 40)
-        }
-        
-        response = client.generate(
+        # Use chat format for better results
+        response = client.chat(
             model=self.model_name,
-            prompt=prompt,
-            options=options
+            messages=[
+                {'role': 'user', 'content': prompt}
+            ],
+            options={
+                'temperature': config.get('temperature', 0.7),
+                'num_predict': config.get('max_tokens', 500),
+                'top_p': config.get('top_p', 0.95),
+                'top_k': config.get('top_k', 40)
+            }
         )
         
-        return response['response'].strip()
-    
-    def is_available(self) -> bool:
-        try:
-            client = self._get_ollama_client()
-            # Check if the specific model exists
-            models = client.list()
-            model_names = [model['name'] for model in models['models']]
-            return any(self.model_name in name for name in model_names)
-        except:
-            return False
+        return response['message']['content'].strip()
     
     def get_name(self) -> str:
         return f"Ollama ({self.model_name})"
@@ -118,10 +137,5 @@ def get_available_providers() -> Dict[str, ModelProvider]:
     ollama_phi3 = OllamaProvider("phi3")
     if ollama_phi3.is_available():
         providers['ollama_phi3'] = ollama_phi3
-    
-    # You can add more models here
-    # ollama_llama2 = OllamaProvider("llama2")
-    # if ollama_llama2.is_available():
-    #     providers['ollama_llama2'] = ollama_llama2
     
     return providers

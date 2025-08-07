@@ -1,6 +1,6 @@
 import os
 from typing import List, Dict, Optional
-from langchain_community.vectorstores import Chroma  # ✅ Updated import
+from langchain_chroma import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from dotenv import load_dotenv
 
