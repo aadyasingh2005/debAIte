@@ -318,59 +318,127 @@ def run():
         print("Cannot proceed without a model provider. Exiting.")
         return
 
-    # 2) Topic
+    # 2) Debate Mode Selection
+    debate_mode = choose_debate_mode()
+    
+    # 3) Topic
     topic = input("\nDebate topic ▶ ").strip()
     if not topic:
         topic = "Should governments impose strict regulations on AI research?"
         print(f"(Default topic selected → {topic})")
 
-    # 3) Agent Creation
+    if debate_mode == "2":
+        # User vs AI mode
+        result = setup_user_vs_ai_debate(model_provider)
+        if not result:
+            return
+        
+        agents, user_goes_first = result
+        
+        # Get optimization settings (simpler for user debates)
+        use_length_limits, word_limits = ask_length_limits()
+        use_rag = ask_rag_preference()
+        
+        print(f"\n📋 USER vs AI CONFIGURATION:")
+        print(f"   AI Opponents: {len(agents)} agents")
+        print(f"   Turn Order: {'User first' if user_goes_first else 'AI first'}")
+        print(f"   Length Limits: {'✅ ENABLED' if use_length_limits else '❌ DISABLED'}")
+        print(f"   RAG Knowledge: {'✅ ENABLED' if use_rag else '❌ DISABLED'}")
+        
+        if word_limits:
+            print(f"   Word Limits: Opening({word_limits['opening']['words']}), "
+                  f"Rebuttal({word_limits['rebuttal']['words']}), "
+                  f"Closing({word_limits['closing']['words']})")
+        
+        input("\nPress <Enter> to begin your debate against AI...")
+        
+        # Import and run user vs AI controller
+        from debate.user_vs_ai_controller import UserVsAIController
+        
+        UserVsAIController(
+            ai_agents=agents,
+            topic=topic,
+            user_goes_first=user_goes_first,
+            use_length_limits=use_length_limits,
+            word_limits=word_limits,
+            use_rag=use_rag
+        ).run()
+        
+    else:
+        # Existing AI vs AI mode
+        agents = choose_agent_creation_method(model_provider)
+        
+        if len(agents) < 2:
+            print("Need at least 2 agents for an AI vs AI debate!")
+            return
+
+        # ... rest of existing AI vs AI logic
+        mode = ask_context_mode()
+        use_batching = ask_batching_preference()
+        
+        if use_batching and 'ollama' in model_provider.get_name().lower():
+            print("⚠️  Batching not supported with Ollama, disabling batching")
+            use_batching = False
+        
+        use_length_limits, word_limits = ask_length_limits()
+        use_rag = ask_rag_preference()
+        
+        print(f"\n📋 AI vs AI CONFIGURATION:")
+        print(f"   Model Provider: {model_provider.get_name()}")
+        print(f"   Agents: {len(agents)} selected")
+        print(f"   Context Mode: {mode.value.upper()}")
+        print(f"   Batching: {'✅ ENABLED' if use_batching else '❌ DISABLED'}")
+        print(f"   Length Limits: {'✅ ENABLED' if use_length_limits else '❌ DISABLED'}")
+        print(f"   RAG Knowledge: {'✅ ENABLED' if use_rag else '❌ DISABLED'}")
+        
+        input("\nPress <Enter> to begin the AI debate...")
+        
+        DebateController(
+            agents=agents,
+            topic=topic,
+            context_mode=mode,
+            use_batching=use_batching,
+            use_length_limits=use_length_limits,
+            word_limits=word_limits,
+            use_rag=use_rag
+        ).run()
+
+def choose_debate_mode():
+    """Let user choose between AI vs AI or User vs AI debate"""
+    print("\n🎯 DEBATE MODE SELECTION:")
+    print("  1 → AI vs AI debate (agents debate each other)")
+    print("  2 → User vs AI debate (you debate against AI agents)")
+    
+    choice = input("Select mode (1-2) [1] ▶ ").strip() or "1"
+    return choice
+
+def setup_user_vs_ai_debate(model_provider):
+    """Setup user vs AI debate configuration"""
+    print("\n👤 USER vs AI DEBATE SETUP")
+    print("=" * 40)
+    
+    # Select AI opponents
     agents = choose_agent_creation_method(model_provider)
     
-    if len(agents) < 2:
-        print("Need at least 2 agents for a debate!")
-        return
-
-    # 4) Context mode
-    mode = ask_context_mode()
+    if len(agents) == 0:
+        print("❌ Need at least 1 AI opponent!")
+        return None
     
-    # 5) Optimizations
-    use_batching = ask_batching_preference()
+    print(f"✅ You will debate against {len(agents)} AI opponent(s):")
+    for agent in agents:
+        print(f"   • {agent.name} ({agent.role}) - {agent.knowledge_domain or 'general'} expert")
     
-    # Disable batching for Ollama
-    if use_batching and 'ollama' in model_provider.get_name().lower():
-        print("⚠️  Batching not supported with Ollama, disabling batching")
-        use_batching = False
+    # Ask who goes first
+    print(f"\n🎲 TURN ORDER:")
+    print("  1 → You go first (make opening statement)")
+    print("  2 → AI goes first (you respond)")
     
-    use_length_limits, word_limits = ask_length_limits()
-    use_rag = ask_rag_preference()
+    order_choice = input("Who goes first? (1-2) [1] ▶ ").strip() or "1"
+    user_goes_first = order_choice == "1"
     
-    # 6) Configuration summary
-    print(f"\n📋 CONFIGURATION SUMMARY:")
-    print(f"   Model Provider: {model_provider.get_name()}")
-    print(f"   Agents: {len(agents)} selected")
-    print(f"   Context Mode: {mode.value.upper()}")
-    print(f"   Batching: {'✅ ENABLED' if use_batching else '❌ DISABLED'}")
-    print(f"   Length Limits: {'✅ ENABLED' if use_length_limits else '❌ DISABLED'}")
-    print(f"   RAG Knowledge: {'✅ ENABLED' if use_rag else '❌ DISABLED'}")
+    print(f"✅ Order: {'You' if user_goes_first else 'AI'} will go first")
     
-    if word_limits:
-        print(f"   Word Limits: Opening({word_limits['opening']['words']}), "
-              f"Rebuttal({word_limits['rebuttal']['words']}), "
-              f"Closing({word_limits['closing']['words']})")
-
-    input("\nPress <Enter> to begin the debate…")
-
-    # 7) Run debate
-    DebateController(
-        agents=agents,
-        topic=topic,
-        context_mode=mode,
-        use_batching=use_batching,
-        use_length_limits=use_length_limits,
-        word_limits=word_limits,
-        use_rag=use_rag
-    ).run()
+    return agents, user_goes_first
 
 
 if __name__ == "__main__":
